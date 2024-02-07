@@ -1,0 +1,22 @@
+status-cell {
+    width: 110px; /* Choisissez une largeur appropriée */
+  }
+
+  .fixed-cell {
+    width: 200px; /* ou toute autre largeur souhaitée */
+    padding-right: 24px;
+  }
+
+  .MuiIconButton-root{
+    size:"large"
+  }
+
+  .iconButton{
+    size:'small';
+    color : 'red'
+  }
+
+/* Ajoutez ceci à votre fichier CSS (ou utilisez des classes et des media queries dans le composant React) */
+
+/* Par exemple, pour décaler vers la droite lorsque la largeur de l'écran est inférieure à 768px */
+

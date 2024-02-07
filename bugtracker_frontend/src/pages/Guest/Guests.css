@@ -1,0 +1,9 @@
+@media screen and (max-width:1800px) {
+    /* Augmentez la marge de gauche et réduisez la marge de droite pour décaler vers la droite */
+    #GuestContainer {
+      /* Ajustez la valeur de votre décalage vers la gauche */
+      margin-bottom: 100px;
+      margin-right: 120px; /* Ajustez la valeur de votre décalage vers la droite */
+    }
+   
+  }
