@@ -1,0 +1,14 @@
+.env
+.node_modules/
+.package-lock.json/
+.package.json/
+
+Frontend/.np
+Frontend.pnp.js
+
+# Ignore specific files in Frontend
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
