@@ -1,5 +1,5 @@
 {
-  "homepage": "http://Abb75.github.io/bugtracker",
+  "homepage": "http://Abb75.github.io/Bugtracker",
   "name": "bug_tracker",
   "version": "0.1.0",
   "private": true,
@@ -18,10 +18,10 @@
     "bootstrap": "^5.2.3",
     "chart.js": "^4.3.2",
     "mdb-react-ui-kit": "^5.1.0",
-    "react": "^18.0.0",
+    "react": "^18.2.0",
     "react-bootstrap": "^2.7.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.0.0",
+    "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
     "react-redux": "^8.1.2",
     "react-router-dom": "^6.6.2",
@@ -39,7 +39,7 @@
     "start": "set HTTPS=true && react-scripts start",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
-    "build": "set HTTPS=true && react-scripts build",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
