@@ -1,11 +1,8 @@
-from guardian.shortcuts import assign_perm, remove_perm
-from guardian.models import UserObjectPermission
+from guardian.shortcuts import assign_perm
 
 
 PERM_ADMIN = ['add_bug' ,'view_bug', 'assign_bug', 'change_bug', 'delete_bug']
-#PERM_GUEST_ADMIN = ['add_bug', 'view_bug', 'assign_bug', 'change_bug']
 PERM_GUEST = ['add_bug', 'view_bug', 'assign_bug',  'change_bug']
-#PERM_ASSIGNED = ['add_bug', 'view_bug', 'assign_bug',  'change_bug']
 
 
 def assign_permissions(permissions, user, obj):
