@@ -1,7 +1,17 @@
+import uuid
+from datetime import date
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated, AllowAny 
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, generics
+from guardian.shortcuts import get_objects_for_user
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from django.db.models import F
+
+from users.models import User
+from .models import Project,  Invitation
 from .permissions.permissions_bug import assign_bug_permissions, assign_bug_guest_admin_permissions
 from .permissions.permissions_project import(assign_admin_project_permissions,
                                             assign_guest_project_permissions,
@@ -9,28 +19,20 @@ from .permissions.permissions_project import(assign_admin_project_permissions,
                                             assign_guest_admin_project_permissions,
                                             remove_guest_project_permissions,
                                             remove_guest_admin_project_permissions)
-
 from .permissions.permissions_invitation import(assign_admin_invitation_permissions,
                                                 assign_guest_invitation_permissions,
                                                 assign_guest_admin_invitation_permissions)
 
-from guardian.shortcuts import get_objects_for_user
-from rest_framework.permissions import IsAuthenticated, AllowAny 
-from users.models import User
-from .models import Project,  Invitation
 from bugs.models import Bug, BugComment, BugHistory
 from .serializers import  ( ProjectSerializer, 
                             InvitationSerializer,
                             AllGuestByAdminSerializer,
                             )
 from bugs.serializers import BugSerializer, BugHistorySerializer, BugCommentSerializer
-import uuid
 from users.serializers import UserSerializer
-from datetime import date
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
-from django.db.models import F
-from .emails import create_mail_content_new_user , create_mail_content_user_exist, send_invitation_email
+from .emails import (create_mail_content_new_user,
+                    create_mail_content_user_exist,
+                    send_invitation_email)
 
 
 
