@@ -50,6 +50,7 @@ import { GetTokenUser } from '../../redux/selectors/userSelectors';
       const navigate = useNavigate()
       const currentUser = GetCurrentUser()
       const listProjectUser = ListProjectByUser()
+      console.log(listProjectUser)
       //const tokenUser = localStorage.getItem('access_token')
       const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
       const [anchorEl, setAnchorEl] = useState({});

@@ -29,6 +29,7 @@ class BugSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         from projects.serializers import ProjectSerializer
+        print(instance, 'YYY')
         representation = {
                     'id': instance.id,
                     'title': instance.title,

@@ -67,6 +67,7 @@ export const GetInvitationUser = (tokenUser) => async(dispatch) => {
 
 
       export const DeleteGuestUserInvitationProjectApi = async(projectId, invitationId, tokenUser)  => {   
+        console.log(projectId, invitationId, tokenUser)
         try {
          
            const config = {

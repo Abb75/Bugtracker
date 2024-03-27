@@ -1,38 +1,58 @@
 import uuid
 from datetime import date
+from django.contrib.auth.decorators import permission_required
+
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated, AllowAny 
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status, generics
-from guardian.shortcuts import get_objects_for_user
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import F
+from django.core.cache import cache
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, generics
+from rest_framework.permissions import IsAuthenticated, AllowAny 
+
+from guardian.shortcuts import get_objects_for_user
+
+from chat.models import Room
 from users.models import User
-from .models import Project,  Invitation
-from .permissions.permissions_bug import assign_bug_permissions, assign_bug_guest_admin_permissions
-from .permissions.permissions_project import(assign_admin_project_permissions,
-                                            assign_guest_project_permissions,
-                                            assign_admin_project_permissions,
-                                            assign_guest_admin_project_permissions,
-                                            remove_guest_project_permissions,
-                                            remove_guest_admin_project_permissions)
-from .permissions.permissions_invitation import(assign_admin_invitation_permissions,
-                                                assign_guest_invitation_permissions,
-                                                assign_guest_admin_invitation_permissions)
-
+from .models import Project, Invitation
 from bugs.models import Bug, BugComment, BugHistory
-from .serializers import  ( ProjectSerializer, 
-                            InvitationSerializer,
-                            AllGuestByAdminSerializer,
-                            )
-from bugs.serializers import BugSerializer, BugHistorySerializer, BugCommentSerializer
+
+from .permissions.assign_perm.bug_assign import (assign_bug_guest_admin_permissions,
+                                                  assign_bug_permissions)
+from .permissions.assign_perm.project_assign import (assign_admin_project_permissions,
+                                                     assign_guest_project_permissions,
+                                                     assign_admin_project_permissions,
+                                                     assign_guest_admin_project_permissions,
+                                                     remove_guest_project_permissions,
+                                                     remove_guest_admin_project_permissions)
+from .permissions.assign_perm.invitation_assign import (assign_admin_invitation_permissions,
+                                                        assign_guest_invitation_permissions,
+                                                        assign_guest_admin_invitation_permissions)
+
+from .serializers import (ProjectSerializer, 
+                          InvitationSerializer,
+                          AllGuestByAdminSerializer)
+from bugs.serializers import (BugSerializer, 
+                              BugHistorySerializer, 
+                              BugCommentSerializer)
 from users.serializers import UserSerializer
-from .emails import (create_mail_content_new_user,
-                    create_mail_content_user_exist,
-                    send_invitation_email)
+
+from .emails import (create_mail_new_user,
+                     create_mail_user_exist,
+                     send_invitation_email)
+
+from .permissions.perm import (is_admin_or_guest_admin_perm, 
+                               is_admin, 
+                               user_can_add_bug, 
+                               user_can_view_project, 
+                               user_can_change_invitation, 
+                               user_can_view_bug, 
+                               user_can_change_bug)
+from .decorators import admin_required
+
 
 
 
@@ -44,11 +64,24 @@ class ProjectView(generics.ListCreateAPIView):
     def get_queryset(self):
        return get_objects_for_user(self.request.user, 'view_project', Project )
    
+    @transaction.atomic
     def perform_create(self, serializer):
             if self.request.user.groups.filter(name='admin').exists():
                 instance = serializer.save()
                 assign_admin_project_permissions(self.request.user, instance)
+                self.create_chat_room(instance)
                 return super().perform_create(serializer)
+            
+      
+    def create_chat_room(self, instance):
+        user_id = get_object_or_404(User, id=self.request.user.id)
+        obj = Room.objects.create(
+                    host=user_id,
+                    name=instance.name,
+                    project=Project.objects.get(id=instance.id)
+        )
+        obj.save()
+
 
     
 
@@ -63,18 +96,20 @@ class ProjectById(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self, *args, **kwargs):
         return get_objects_for_user(self.request.user, 'view_project',
                                     Project.objects.filter(id=self.kwargs['project_id'])) 
-      
     
+      
+    @admin_required
     def partial_update(self, request, *args, **kwargs):
-        if self.request.user.has_perm('admin_user', self.get_object()):
-            return super().partial_update(request, *args, **kwargs)
-        return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': 'Permission denied.'})
+        return super().partial_update(request, *args, **kwargs)
         
 
+    @admin_required    
     def destroy(self, request, *args, **kwargs):
-        if self.request.user.has_perm('admin_user', self.get_object()):
+            room = Room.objects.get(project=self.get_object())
+            print(room)
+            cache.delete(f"messages_room_{room.pk}")
             return super().destroy(request, *args, **kwargs)
-        return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': 'Permission denied.'})
+        #return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': 'Permission denied.'})
        
 
  
@@ -88,12 +123,12 @@ class BugProjectView(generics.ListCreateAPIView):
       
     def get_queryset(self, *args, **kwargs):
         project = get_object_or_404(Project, id=self.kwargs['project_id'])
-        if self.request.user.has_perm('view_project', project):
+        if user_can_view_project(self.request, project):
             return Bug.objects.filter(project=self.kwargs['project_id'])
     
     
     def perform_create(self, serializer): 
-        if self.request.user.has_perm('can_add_bug', serializer.validated_data['project']):
+        if user_can_add_bug(self.request,serializer.validated_data['project']):
             bug = serializer.save()
             date_format = date.today().strftime("%Y-%m-%d")
             status_entry = [{"status":  bug.status, "date": date_format}]
@@ -112,35 +147,35 @@ class BugIdProjectView(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = 'bug_id'
 
     def get_queryset(self, *args, **kwargs):
-        if self.request.user.has_perm('view_bug', Bug.objects.get(id=self.kwargs['bug_id'])):
+        if user_can_view_bug(self.request, Bug.objects.get(id=self.kwargs['bug_id'])):
             return Bug.objects.filter(id=self.kwargs['bug_id'])
         return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': 'Permission denied.'})
+    
     
     def partial_update(self, request, *args, **kwargs):
      
         project = get_object_or_404(Project, id=self.kwargs['project_id'])
         bug = get_object_or_404(Bug, id=self.kwargs['bug_id'])
 
-        if self.user_is_admin_or_guest_admin_permission(project):
-            if not self.user_has_change_permission(bug):
-                assign_bug_guest_admin_permissions(self.request.user, bug)
-
-        if self.user_can_modify_bug(bug):
+        if self.user_can_modify_bug(bug, project):
             self.get_or_create_bug_history_obj(request, bug)
-         
-
             return super().partial_update(request, *args, **kwargs)
+        
         return Response({"detail": "You do not have permission to perform this action."},status=status.HTTP_403_FORBIDDEN)
  
    
-    def user_is_admin_or_guest_admin_permission(self, project):
-        return self.request.user.has_perm('can_archived_bug', project)
+    def user_can_modify_bug(self, bug, project):
+        if is_admin_or_guest_admin_perm(self.request, project):
+            if not self.user_has_change_permission(bug):
+                assign_bug_guest_admin_permissions(self.request.user, bug)
+            return True
+        else:        
+            return self.request.user in [bug.created_by, bug.assigned_to]
+
 
     def user_has_change_permission(self, bug):
         return self.request.user.has_perm('change_bug', bug)
 
-    def user_can_modify_bug(self, bug):
-        return self.request.user in [bug.created_by, bug.assigned_to]
     
     def get_or_create_bug_history_obj(self, request, bug):
         date_format = date.today().strftime("%Y-%m-%d")
@@ -156,10 +191,11 @@ class BugIdProjectView(generics.RetrieveUpdateDestroyAPIView):
             bug_history.data.append(status_entry)
             bug_history.save()
 
+
+    @admin_required
     def destroy(self, request, *args, **kwargs):
-        if self.request.user.has_perm('admin_user', Project.objects.get(id=kwargs['project_id'])):
-            return super().destroy(request, *args, **kwargs)
-        return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': 'Permission denied.'})
+        return super().destroy(request, *args, **kwargs)
+      
         
 
 
@@ -172,7 +208,7 @@ class BugHistoryViewById(generics.ListAPIView):
 
 
     def get_queryset(self, *args, **kwargs):
-        if self.request.user.has_perm('change_bug', get_object_or_404(Bug, id=self.kwargs['bug_id']) ):
+        if user_can_change_bug(self.request, get_object_or_404(Bug, id=self.kwargs['bug_id'])):
             return BugHistory.objects.filter(bug=self.kwargs['bug_id'])
     
     
@@ -184,7 +220,9 @@ class GuestUserByProjectView(generics.ListAPIView):
     serializer_class = InvitationSerializer
    
     def get_queryset(self, *args, **kwargs):
-        return get_objects_for_user(self.request.user, 'delete_invitation', klass=Invitation).filter(project=self.kwargs['project_id'])
+        return get_objects_for_user(self.request.user,
+                                    'delete_invitation',
+                                    klass=Invitation).filter(project=self.kwargs['project_id'])
      
     
 
@@ -196,11 +234,14 @@ class ListInvitationView(generics.ListAPIView):
     def get_queryset(self, *args, **kwargs):
        
         if self.request.user.groups.filter(name = 'admin').exists(): 
-            return get_objects_for_user(self.request.user, 'delete_invitation', klass=Invitation).filter(accepted=False,
-                                                                                                          invited_by=self.request.user)
+            return get_objects_for_user(self.request.user,
+                                        'delete_invitation',
+                                         klass=Invitation).filter(accepted=False, invited_by=self.request.user)
         else:
-            return get_objects_for_user(self.request.user, 'view_invitation', klass=Invitation).filter(invited_user=self.request.user,
-                                                                                                        accepted=False)
+            return get_objects_for_user(self.request.user,
+                                         'view_invitation', 
+                                         klass=Invitation).filter(invited_user=self.request.user,accepted=False)
+                                                                                                        
                
     
 
@@ -216,13 +257,14 @@ class InvitationGuestUserByIdView(generics.RetrieveUpdateDestroyAPIView):
                                 id=self.kwargs['invitation_id']
                                 )
 
-    def destroy(self, request, *args, **kwargs):
+    @admin_required
+    def destroy(self, request, *args, **kwars):
         project =  Project.objects.get(id=self.kwargs['project_id'])
-        if self.request.user.has_perm('admin_user',project): 
-            remove_guest_project_permissions(self.get_object().invited_user, project)
-            self.get_object().delete()
-            
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        remove_guest_project_permissions(self.get_object().invited_user, project)
+        self.get_object().delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+  
 
 
     def get_queryset(self, *args, **kwargs):
@@ -232,7 +274,7 @@ class InvitationGuestUserByIdView(generics.RetrieveUpdateDestroyAPIView):
     def partial_update(self, request, *args, **kwargs):   
       
         invitation = get_object_or_404(Invitation, id=kwargs['invitation_id'])  
-        if self.request.user.has_perm('change_invitation', invitation):   
+        if user_can_change_invitation(request, invitation):
             self.handle_partial_update( request, *args, **kwargs)
             return Response({'message': 'Partial update successful'}, status=status.HTTP_200_OK)
         return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
@@ -252,7 +294,7 @@ class InvitationGuestUserByIdView(generics.RetrieveUpdateDestroyAPIView):
 
 
     def handle_role_update(self, request, project, invitation):
-        if self.request.user.has_perm('admin_user', project) and project.admin == request.user:
+        if is_admin(request, project):
             if request.data['role'] == 'admin':
                 assign_guest_admin_project_permissions(invitation.invited_user, project)
             else:
@@ -269,64 +311,67 @@ class InvitationGuestUserByIdView(generics.RetrieveUpdateDestroyAPIView):
                 assign_guest_admin_project_permissions(invitation.invited_user, project)
             else:
                 assign_guest_project_permissions(invitation.invited_user, project)
- 
+            
 
 
 class SendInvitationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = InvitationSerializer
     lookup_url_kwarg = 'project_id'
-              
+
+    @transaction.atomic
+    def post(self, request, project_id):
+        project = get_object_or_404(Project, id=project_id)
+        if is_admin_or_guest_admin_perm(request, project):
+            uuid_code = str(uuid.uuid4())
+            email = request.data['email'],
+
+            if self.user_exist(email):
+            
+                message, subject = create_mail_user_exist(project_id.name)
+            
+            else:
+                message, subject = create_mail_new_user(uuid_code)
+            
+         
+            #send_invitation_email(email, message, subject)
+            invited_user, created = User.objects.get_or_create(email=request.data['email'])
+            new_invitation = Invitation.objects.create( invitation_code= uuid_code,
+                                                        email = request.data['email'],
+                                                        name = request.data['name'],
+                                                        role = request.data['role'],
+                                                        project = project,
+                                                        invited_user = invited_user, 
+                                                        invited_by = self.request.user
+                                                    )
+            new_invitation.save()
+            project.user.add(invited_user.id)
+            project.save()
+
+            self.assign_permissions(project, new_invitation, invited_user)
+
+            return Response({'message': 'E-mail d\'invitation envoyé avec succès'})
+            
+        return Response({"detail": "You do not have permission to perform this action."},status=status.HTTP_403_FORBIDDEN)
+    
+    
+    def user_exist(self, email):
+        try:
+            User.objects.get(email=email)
+            return True
+        except ObjectDoesNotExist:
+            return False
+        
 
     def assign_permissions(self, project, new_invitation, invited_user):
 
-        if not self.request.user.has_perm('admin_user', project):
+        if not is_admin(self.request, project):
             assign_guest_admin_invitation_permissions(self.request.user, new_invitation)
         assign_admin_invitation_permissions(project.admin, new_invitation)
         assign_guest_invitation_permissions(invited_user, new_invitation)
 
 
 
-    @transaction.atomic
-    def post(self, request, project_id):
-        project = get_object_or_404(Project, id=project_id)
-        if self.request.user.has_perm('can_add_invitation', project):
-            uuid_code = str(uuid.uuid4())
-            project_id = get_object_or_404(Project, id=project_id)
-            email = request.data['email']
-        
-            try:
-                user_exist = User.objects.get(email=email)
-            except ObjectDoesNotExist:
-                user_exist = False
-
-
-            if user_exist:
-                 message, subject = create_mail_content_user_exist(project_id.name)
-              
-            else:
-                message, subject = create_mail_content_new_user(uuid_code)
-            
-                
-            send_invitation_email(email, message, subject)
-            invited_user, created = User.objects.get_or_create(email=request.data['email'])
-            new_invitation = Invitation.objects.create( invitation_code= uuid_code,
-                                                        email = request.data['email'],
-                                                        name = request.data['name'],
-                                                        role = request.data['role'],
-                                                        project = project_id,
-                                                        invited_user = invited_user, 
-                                                        invited_by = self.request.user
-                                                    )
-            new_invitation.save()
-            project_id.user.add(invited_user.id)
-            project_id.save()
-
-            self.assign_permissions(project, new_invitation, invited_user)
-
-            return Response({'message': 'E-mail d\'invitation envoyé avec succès'})
-        
-        return Response({"detail": "You do not have permission to perform this action."},status=status.HTTP_403_FORBIDDEN)
 
 
 class GuestCreateView(generics.UpdateAPIView):
@@ -392,7 +437,8 @@ class ArchivedProjectView(generics.ListAPIView):
     queryset = Project.objects.all()
 
     def get_queryset(self, *agrs, **kwargs):
-        return get_objects_for_user(self.request.user, 'admin_user', klass=Project, accept_global_perms=True).filter(is_archived=True)
+        return get_objects_for_user(self.request.user, 'admin_user',
+                                     klass=Project, accept_global_perms=True).filter(is_archived=True)
        
      
 
@@ -405,7 +451,9 @@ class ArchivedBugView(generics.ListAPIView):
 
     def get_queryset(self, *args, **kwargs):
         if self.request.user.groups.filter(name='admin').exists():
-            user_projects = get_objects_for_user(self.request.user, 'admin_user', klass=Project).filter(is_archived=False)
+            user_projects = get_objects_for_user(self.request.user,
+                                                'admin_user',
+                                                 klass=Project).filter(is_archived=False)
             return Bug.objects.filter(project__in=user_projects, is_archived=True)
         else :
              return Bug.objects.filter( is_archived=True,

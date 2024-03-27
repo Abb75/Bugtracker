@@ -66,7 +66,7 @@ REST_FRAMEWORK = {
 
 
 INSTALLED_APPS = [
-    
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -74,7 +74,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'guardian',
-    'corsheaders',
+    'corsheaders', 
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -83,10 +83,22 @@ INSTALLED_APPS = [
     'users',
     'projects', 
     'bugs',
+    'chat',
+   
 
 
 ]
 #CORS_ALLOW_ALL_ORIGINS = True
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG":{
+            'hosts': [('127.0.0.1', 6379)],
+
+        }  # ou "channels.layers.ASYNCIOChannelLayer" pour la configuration asynchrone
+    },
+}
 
 
 INTERNAL_IPS = [
@@ -127,6 +139,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'bug_tracker.wsgi.application'
+ASGI_APPLICATION = "bug_tracker.asgi.application"
+
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -135,21 +149,30 @@ AUTH_USER_MODEL = 'users.User'
 
 
 
-DATABASES = {
-    'default': dj_database_url.parse('postgres://bug_tracker_db_test_user:fKAO9fW4o5xKkHNU5Q2gFvNo41har9aK@dpg-cmpv7qo21fec73ck17g0-a.frankfurt-postgres.render.com/bug_tracker_db_test')
+#DATABASES = {
+    #'default': dj_database_url.parse('postgres://bug_tracker_db_test_user:fKAO9fW4o5xKkHNU5Q2gFvNo41har9aK@dpg-cmpv7qo21fec73ck17g0-a.frankfurt-postgres.render.com/bug_tracker_db_test')
 
+#}
+    
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1', # Spécifiez l'adresse et le port de votre instance Redis
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
 }
-    
 
-"""
-    
-'default': {
- 'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME' :os.environ.get('POSTGRES_DB'),
-        'USER': os.environ.get('POSTGRES_USER'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD')}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'bugtracker',
+        'USER': 'postgres',
+        'PASSWORD': 'muaythai',
+    }
+}
 
-"""
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators

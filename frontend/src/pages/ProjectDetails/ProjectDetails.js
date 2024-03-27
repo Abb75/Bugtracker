@@ -28,6 +28,7 @@ import { GetCurrentUser, GetTokenUser } from '../../redux/selectors/userSelector
 import { GetProjectDetails } from '../../redux/actions/projectActions';
 import { ProjectDetailsData } from '../../redux/selectors/projectSelectors';
 import './ProjectDetails.css'
+import ChatWindow from '../chat/chat';
 
 export const ProjectDetailsPage = () => {
   //const tokenUser = localStorage.getItem('access_token')
@@ -47,11 +48,13 @@ export const ProjectDetailsPage = () => {
       </Grid>
       
      
-     
     <div  style={{ marginBottom:'350px'}}>
+   
+
        <ProjectDetails  />
         <BugsCount />
-        <Bugs />
+        <Bugs /> 
+        <ChatWindow />
     </div>
         
     

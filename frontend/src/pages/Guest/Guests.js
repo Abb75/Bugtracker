@@ -1,31 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Grid, Paper, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, MenuItem, IconButton, Menu } from '@mui/material';
-//import { GetUserProjectApi } from '../../../store/actions/projectActions';
 import { ListProjectByUser } from '../../redux/selectors/projectSelectors';
-import { GetGuestUsersByAdmin } from '../../redux/selectors/userSelectors';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { useDispatch } from 'react-redux';
-import { UpdateBugApi } from '../../redux/actions/bugActions';
 import { UpdateRoleUserByProjectApi } from '../../redux/actions/userActions';
-import DeleteGuestUserDialog from '../../components/dialog/DeleteGuestUser';
 import { GetUserProjectApi } from '../../redux/actions/projectActions';
 import { GetTokenUser } from '../../redux/selectors/userSelectors';
-// Exemple de données de projets et d'utilisateurs invités
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { SendSuccessNotification } from '../../components/Alert';
+import { DeleteGuestUserInvitationProjectApi } from '../../redux/actions/invitationActions';
 import './Guests.css'
 
 export const GuestsUser = () => {
 
-  //const tokenUser = localStorage.getItem('access_token')
   const tokenUser = GetTokenUser()  
-
   const dispatch  = useDispatch()
   const projects = ListProjectByUser()
-  console.log(projects)
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectUsers, setProjectUsers] = useState(null);
   const [openMenuRole, setOpenMenuRole] = useState(false);
   const [projectState, setProjectState] = useState(projects)
   const [role, setRole] = useState(false);
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [userIdToDelete, setUserIdToDelete] = useState(null);
+
+
 
   const handleRoleClose = (bugId) => {
     console.log(bugId)
@@ -81,6 +85,10 @@ export const GuestsUser = () => {
   }, [ projects]);
 
 
+  const handleDeleteUser = async (user) => {
+    setUserIdToDelete(user);
+    setDeleteConfirmationOpen(true);
+  };
 
 
   const handleRoleClick = (event, index) => {
@@ -89,6 +97,21 @@ export const GuestsUser = () => {
     setRole(event.currentTarget);
   }; 
 
+
+  const handleDeleteConfirmationClose = async (confirmed) => {
+    console.log(confirmed, 'RRRRRRRRRRRRRRR')
+    if (confirmed) {
+      try { 
+        await DeleteGuestUserInvitationProjectApi(selectedProject.id, userIdToDelete, tokenUser)  
+        dispatch(GetUserProjectApi(tokenUser))
+        SendSuccessNotification('User delete with success');
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    setDeleteConfirmationOpen(false);
+  };
 
 
   return (
@@ -174,13 +197,24 @@ Check users</Button>
                           </Menu>
                        
                           </TableCell> 
-                          
-                            <DeleteGuestUserDialog  project={selectedProject.id} 
-                            user={user.id}
-                             />
+                          <Grid>
+                              <Button
+                                onClick={() => handleDeleteUser(user.id)}
+                                variant="contained"
+                                color="secondary"
+                                startIcon={<DeleteIcon />}
+                              >
+                                Delete
+                              </Button>
+                            </Grid>
+                           
+                           
                         
                       </TableRow>
                     ))}
+
+
+
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -188,6 +222,26 @@ Check users</Button>
           )}
         </Grid>
       </Grid>
+
+      <Dialog
+        open={deleteConfirmationOpen}
+        onClose={() => handleDeleteConfirmationClose(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Delete projet definitely?"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Your project will definitely be deleted.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => handleDeleteConfirmationClose(false)}>Disagree</Button>
+          <Button onClick={() => handleDeleteConfirmationClose(true)} autoFocus>
+            Agree
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

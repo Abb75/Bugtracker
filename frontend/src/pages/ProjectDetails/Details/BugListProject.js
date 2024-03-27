@@ -16,16 +16,14 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Button, Container, Menu, MenuItem } from '@mui/material';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { useDispatch } from 'react-redux';
-import { GetBugProjectApi, UpdateUserBugApi, UpdateBugApi, DeleteBugApi, ArchivedBugApi, UpdateBugArchivedApi } from '../../../redux/actions/bugActions';
+import { GetBugProjectApi, UpdateUserBugApi, UpdateBugApi,UpdateBugArchivedApi } from '../../../redux/actions/bugActions';
 import { BugProject } from '../../../redux/selectors/bugSelectors';
 import { ProjectDetails, ProjectDetailsData, SelectedProject } from '../../../redux/selectors/projectSelectors';
 import { useParams, Link } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import { useSelector } from 'react-redux';
 import { GetCurrentUser, GetTokenUser } from '../../../redux/selectors/userSelectors';
-import Delete from '@mui/icons-material/Delete';
 import ArchiveIcon from '@mui/icons-material/Archive';
-import DeleteBugDialog from '../../../components/dialog/DeleteBug';
 import './BugListProject.css'
 
 
@@ -381,9 +379,7 @@ export const Bugs = () => {
                                  Details</Link>
                              
                             </Button>
-                            {currentUser.groups[0] === 'admin' ? (
-                              <DeleteBugDialog bug={row.id} project={id}/>
-                            ):(null)}
+                          
                             
                         </Typography>
                         {/* Contenu pour la section History */}

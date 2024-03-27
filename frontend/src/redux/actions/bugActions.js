@@ -363,7 +363,7 @@ export const DeleteBugCommentApi = async(projectId,bugId,commentId, tokenUser) =
 
 
 export const DeleteBugApi = async(bugId,projectId,  tokenUser) => {   
-  console.log(bugId, projectId)
+  console.log(bugId, projectId, tokenUser)
   try {
     const config = {
       headers: { 
