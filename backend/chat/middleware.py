@@ -15,7 +15,6 @@ class WebSocketJWTAuthentication(BaseMiddleware):
         self.jwt_authenticator = JWTAuthentication()
 
     async def __call__(self, scope, receive, send):
-        print(scope, '12122s')
         authorization = scope['query_string'].decode('utf-8')
         if authorization:
             try:
