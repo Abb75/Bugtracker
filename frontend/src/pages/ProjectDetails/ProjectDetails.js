@@ -1,17 +1,11 @@
 
-import { BugsCount } from './Details/BugsCount';
+import { BugsCount } from './details/BugsCount';
 import { Grid } from '@mui/material';
 import {Container} from '@mui/system';
-
-import { Bugs } from './Details/BugListProject';
-import { ProjectDetails } from './Details/ProjectDetails';
-import { Link } from 'react-router-dom';
-import { ButtonAddBug } from './Details/ButtonAddBug';
-import { useDispatch, useSelector } from 'react-redux';
-import { ButtonAddMember } from './Details/ButtonAddMember';
-import { GetCurrentUser, GetTokenUser } from '../../redux/selectors/userSelectors';
-import { GetProjectDetails } from '../../redux/actions/projectActions';
-import { ProjectDetailsData } from '../../redux/selectors/projectSelectors';
+import { Bugs } from './details/BugListProject';
+import { ProjectDetails } from './details/ProjectDetails';
+import { ButtonAddBug } from './details/ButtonAddBug';
+import { ButtonAddMember } from './details/ButtonAddMember';
 import './ProjectDetails.css'
 import ChatWindow from '../chat/chat';
 
